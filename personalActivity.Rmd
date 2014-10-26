@@ -1,0 +1,76 @@
+# Practical Machine Learning: Personal Activity
+```{r echo=FALSE}
+    library(caret)
+library(randomForest)
+```
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Loading and preprocessing the data
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+train_pml <- read.csv('pml-training.csv')
+test_pml <- read.csv('pml-testing.csv')
+```
+
+##Preprocessing
+### Making a training set and validation set
+
+The trainging set (train_pml) is splits it in two sets for trining the model and validate it later-  
+```{r}
+set.seed(6481)
+indexes <- createDataPartition(train_pml$classe, p = 0.7, list = FALSE)
+set_tra <- train_pml[indexes , ]
+set_val <- train_pml[-indexes , ]
+```
+### Clean the training set
+First clean columns with zero variance near. Later exclude form model columns with more of 40% of NA values and columns with character type
+```{r}
+zerocol <- nearZeroVar(set_tra )
+set_tra <- set_tra [, -zerocol ]
+
+cntlength <- sapply(set_tra , function(x) {
+    sum(!(is.na(x) | x == ""))
+})
+nullcol <- names(cntlength[cntlength < 0.6 * length(set_tra$classe)])
+descriptcol <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+    "cvtd_timestamp", "new_window", "num_window")
+excludecols <- c(descriptcol, nullcol)
+set_tra  <- set_tra [, !names(set_tra ) %in% excludecols]
+```
+
+##Building the model
+The model is building with randomForest package.
+```{r}
+rfModel <- randomForest(classe ~ ., data = set_tra , importance = TRUE, ntrees = 10)
+```
+Check the perfomance from training and the cross validation set.
+```{r}
+ptmodel <- predict(rfModel, set_tra )
+print(confusionMatrix(ptmodel, set_tra $classe))
+```
+##Model Validation
+
+Let us now see how our model performs on the cross validation set that we held out from training.
+```{r}
+pvalidation <- predict(rfModel, set_val )
+print(confusionMatrix(pvalidation, set_val $classe))
+```
+The cross validation accuracy is 0.9959, then  our model performs rather good.
+
+##Predicting in the Test set
+With the 20 cases in the test file (pml-testing.csv) We have the follow results:
+```{r}
+fortest <- predict(rfModel, test_pml)
+fortest
+```
+
